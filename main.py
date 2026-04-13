@@ -4,17 +4,10 @@ from flask import Flask, request, jsonify
 
 app = Flask(__name__)
 
-STRAVA_CLIENT_ID = os.environ.get("STRAVA_CLIENT_ID")
-STRAVA_CLIENT_SECRET = os.environ.get("STRAVA_CLIENT_SECRET")
-STRAVA_VERIFY_TOKEN = os.environ.get("STRAVA_VERIFY_TOKEN")
-ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY")
-TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
-TELEGRAM_CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID")
-
 def get_strava_access_token():
     response = requests.post("https://www.strava.com/oauth/token", data={
-        "client_id": STRAVA_CLIENT_ID,
-        "client_secret": STRAVA_CLIENT_SECRET,
+        "client_id": os.environ.get("STRAVA_CLIENT_ID"),
+        "client_secret": os.environ.get("STRAVA_CLIENT_SECRET"),
         "grant_type": "refresh_token",
         "refresh_token": os.environ.get("STRAVA_REFRESH_TOKEN")
     })
@@ -56,7 +49,7 @@ Description: {description}"""
     response = requests.post(
         "https://api.anthropic.com/v1/messages",
         headers={
-            "x-api-key": ANTHROPIC_API_KEY,
+            "x-api-key": os.environ.get("ANTHROPIC_API_KEY"),
             "anthropic-version": "2023-06-01",
             "content-type": "application/json"
         },
@@ -71,8 +64,8 @@ Description: {description}"""
 
 def send_telegram(message):
     requests.post(
-        f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage",
-        json={"chat_id": TELEGRAM_CHAT_ID, "text": message, "parse_mode": "Markdown"}
+        f"https://api.telegram.org/bot{os.environ.get('TELEGRAM_BOT_TOKEN')}/sendMessage",
+        json={"chat_id": os.environ.get("TELEGRAM_CHAT_ID"), "text": message, "parse_mode": "Markdown"}
     )
 
 @app.route("/webhook", methods=["GET"])
@@ -80,9 +73,10 @@ def verify_webhook():
     mode = request.args.get("hub.mode")
     token = request.args.get("hub.verify_token")
     challenge = request.args.get("hub.challenge")
-    if mode == "subscribe" and token == STRAVA_VERIFY_TOKEN:
+    expected = os.environ.get("STRAVA_VERIFY_TOKEN")
+    if mode == "subscribe" and token == expected:
         return jsonify({"hub.challenge": challenge})
-    return "Forbidden", 403
+    return f"Forbidden - got: {token} expected: {expected}", 403
 
 @app.route("/webhook", methods=["POST"])
 def webhook():
